@@ -6,13 +6,13 @@ const port = 4000;
 app.use(express.json());
 
 let items = [];
-const instance = Math.random().toString(36).substring(2, 8);
+const instance = process.env.INSTANCE_ID || Math.random().toString(36).substring(2, 8);Math.random().toString(36).substring(2, 8);
 
-app.get("/items", (request, response) => {
+app.get("/api/items", (request, response) => {
     response.json(items);
 });
 
-app.post("/items", (request, response) => {
+app.post("/api/items", (request, response) => {
     const item = request.body;
     const status = "added " + item
 
@@ -21,7 +21,7 @@ app.post("/items", (request, response) => {
     response.json({ status });
 });
 
-app.get("/stats", (request, response) => {
+app.get("/api/stats", (request, response) => {
     const total = items.length;
 
     response.json({
