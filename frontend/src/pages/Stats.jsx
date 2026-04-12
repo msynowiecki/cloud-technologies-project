@@ -13,10 +13,14 @@ export default function Stats() {
     return (
         <>
             <h2>Statistics</h2>
+
             {stats && (
                 <div>
                     <p>Total products: {stats.total}</p>
                     <p>Backend instance ID: {stats.instance}</p>
+                    <p>Server uptime: {Math.round(stats.uptime)}s</p>
+                    <p>Requests handled: {stats.requests}</p>
+                    <p>Server time: {new Date(stats.time).toLocaleString()}</p>
                 </div>
             )}
         </>
