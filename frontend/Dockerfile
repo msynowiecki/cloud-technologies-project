@@ -17,6 +17,14 @@ RUN npm run build
 FROM nginx:alpine AS production
 WORKDIR /usr/share/nginx/html
 
+ARG BUILD_DATE
+ARG VERSION
+ARG NODE_ENV=production
+
+LABEL org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.version=$VERSION \
+      org.opencontainers.image.title="frontend-service"
+
 RUN rm -rf ./*
 COPY --from=build /app/build ./
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf

@@ -1,5 +1,6 @@
 const express = require("express");
 
+
 const app = express();
 const port = 4000;
 
@@ -7,7 +8,7 @@ app.use(express.json());
 
 let items = [];
 let requests = 0;
-const instance = process.env.INSTANCE_ID || Math.random().toString(36).substring(2, 8);Math.random().toString(36).substring(2, 8);
+const instance = process.env.INSTANCE_ID || Math.random().toString(36).substring(2, 8);
 
 
 app.use((request, response, next) => {
@@ -23,7 +24,7 @@ app.get("/api/items", (request, response) => {
 
 app.post("/api/items", (request, response) => {
     const item = request.body;
-    const status = "added " + item
+    const status = "added " + item;
 
     items.push(item);
 
@@ -60,4 +61,8 @@ app.get("/api/health", (request, response) => {
 });
 
 
-app.listen(port, () => console.log("Backend running on", port));
+module.exports = app;
+
+if (require.main === module) {
+    app.listen(port, () => console.log("Backend running on", port));
+}
