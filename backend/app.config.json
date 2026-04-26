@@ -1,0 +1,5 @@
+{
+  "serviceName": "backend",
+  "timeout": 5000,
+  "cacheTTL": 10
+}

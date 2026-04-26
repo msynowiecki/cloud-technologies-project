@@ -1,6 +1,7 @@
 const express = require("express");
 const { Pool } = require("pg");
 const Redis = require("ioredis");
+const fs = require("fs");
 
 
 const app = express();
@@ -11,12 +12,15 @@ app.use(express.json());
 const instance = process.env.INSTANCE_ID || Math.random().toString(36).substring(2, 8);
 let requests = 0;
 
+const POSTGRES_USER = fs.readFileSync("/run/secrets/db_user", "utf8").trim();
+const POSTGRES_PASSWORD = fs.readFileSync("/run/secrets/db_password", "utf8").trim();
+
 
 const pool = new Pool({
     host: process.env.POSTGRES_HOST,
     port: 5432,
-    user: process.env.POSTGRES_USER,
-    password: process.env.POSTGRES_PASSWORD,
+    user: POSTGRES_USER,
+    password: POSTGRES_PASSWORD,
     database: process.env.POSTGRES_DB,
 });
 
