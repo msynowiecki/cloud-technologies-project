@@ -1,0 +1,206 @@
+name: cloud-technologies-project
+services:
+  backend_1:
+    build:
+      context: /home/szyjson/Documents/Projects/University/cloud-technologies-project/backend
+      dockerfile: Dockerfile
+    configs:
+      - source: app_config
+        target: /app/app.config.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: "536870912"
+    environment:
+      APP_VERSION: dev
+      BACKEND_PORT: "4000"
+      INSTANCE_ID: backend_1
+      LOG_LEVEL: info
+      POSTGRES_DB: cloud_db
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: app
+      REDIS_HOST: redis
+      REDIS_URL: redis://redis:6379
+    image: backend:dev
+    logging:
+      driver: json-file
+    networks:
+      app-net: null
+      db-net: null
+    pull_policy: build
+    restart: unless-stopped
+    secrets:
+      - source: db_user
+        target: /run/secrets/db_user
+      - source: db_password
+        target: /run/secrets/db_password
+  backend_2:
+    build:
+      context: /home/szyjson/Documents/Projects/University/cloud-technologies-project/backend
+      dockerfile: Dockerfile
+    configs:
+      - source: app_config
+        target: /app/app.config.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: "536870912"
+    environment:
+      APP_VERSION: dev
+      BACKEND_PORT: "4000"
+      INSTANCE_ID: backend_2
+      LOG_LEVEL: info
+      POSTGRES_DB: cloud_db
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: app
+      REDIS_HOST: redis
+      REDIS_URL: redis://redis:6379
+    image: backend:dev
+    logging:
+      driver: json-file
+    networks:
+      app-net: null
+      db-net: null
+    pull_policy: build
+    restart: unless-stopped
+    secrets:
+      - source: db_user
+        target: /run/secrets/db_user
+      - source: db_password
+        target: /run/secrets/db_password
+  nginx:
+    depends_on:
+      backend_1:
+        condition: service_started
+        required: true
+      backend_2:
+        condition: service_started
+        required: true
+    image: nginx:latest
+    networks:
+      app-net: null
+      proxy-net: null
+    volumes:
+      - type: bind
+        source: /home/szyjson/Documents/Projects/University/cloud-technologies-project/frontend/nginx/default.conf
+        target: /etc/nginx/conf.d/default.conf
+        read_only: true
+        bind: {}
+  postgres:
+    deploy:
+      resources:
+        limits:
+          memory: "536870912"
+    environment:
+      POSTGRES_DB: cloud_db
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_USER: app
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U app -d cloud_db
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    image: postgres:16
+    networks:
+      db-net: null
+    secrets:
+      - source: db_password
+        target: /run/secrets/db_password
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
+        volume: {}
+  redis:
+    deploy:
+      resources:
+        limits:
+          memory: "268435456"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 5s
+      retries: 5
+    image: redis:7
+    networks:
+      app-net: null
+  worker:
+    build:
+      context: /home/szyjson/Documents/Projects/University/cloud-technologies-project/backend
+      dockerfile: worker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: "268435456"
+    environment:
+      APP_VERSION: dev
+      BACKEND_PORT: "4000"
+      LOG_LEVEL: info
+      POSTGRES_DB: cloud_db
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: app
+      REDIS_HOST: redis
+      REDIS_URL: redis://redis:6379
+      WORKER: "true"
+    image: worker:dev
+    logging:
+      driver: json-file
+    networks:
+      app-net: null
+      db-net: null
+    pull_policy: build
+    restart: unless-stopped
+    secrets:
+      - source: db_user
+        target: /run/secrets/db_user
+      - source: db_password
+        target: /run/secrets/db_password
+networks:
+  app-net:
+    name: cloud-technologies-project_app-net
+  db-net:
+    name: cloud-technologies-project_db-net
+  proxy-net:
+    name: cloud-technologies-project_proxy-net
+volumes:
+  postgres-data:
+    name: cloud-technologies-project_postgres-data
+secrets:
+  db_password:
+    name: cloud-technologies-project_db_password
+    file: /home/szyjson/Documents/Projects/University/cloud-technologies-project/secrets/db_password.txt
+  db_user:
+    name: cloud-technologies-project_db_user
+    file: /home/szyjson/Documents/Projects/University/cloud-technologies-project/secrets/db_user.txt
+configs:
+  app_config:
+    name: cloud-technologies-project_app_config
+    file: /home/szyjson/Documents/Projects/University/cloud-technologies-project/backend/app.config.json

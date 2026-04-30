@@ -2,36 +2,40 @@ services:
 
   nginx:
     image: nginx:latest
-    ports:
-      - "8080:80"
     networks:
+      - app-net
       - proxy-net
     depends_on:
-      backend_1:
-        condition: service_started
-      backend_2:
-        condition: service_started
-    configs:
-      - source: nginx_config
-        target: /etc/nginx/conf.d/default.conf
+      - backend_1
+      - backend_2
+    volumes:
+      - ./frontend/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
   backend_1:
     build:
       context: ./backend
+    image: backend:${APP_VERSION:-latest}
+    pull_policy: build
+    env_file:
+      - path: .env.common
+        required: true
+      - path: .env.local
+        required: false
     environment:
       INSTANCE_ID: backend_1
       BACKEND_PORT: ${BACKEND_PORT}
       POSTGRES_HOST: postgres
       POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
       REDIS_HOST: redis
-      REDIS_URL: ${REDIS_URL}
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - proxy-net
       - app-net
       - db-net
     secrets:
@@ -40,24 +44,33 @@ services:
     configs:
       - source: app_config
         target: /app/app.config.json
+    restart: unless-stopped
 
   backend_2:
     build:
       context: ./backend
+    image: backend:${APP_VERSION:-latest}
+    pull_policy: build
+    env_file:
+      - path: .env.common
+        required: true
+      - path: .env.local
+        required: false
     environment:
       INSTANCE_ID: backend_2
       BACKEND_PORT: ${BACKEND_PORT}
       POSTGRES_HOST: postgres
       POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
       REDIS_HOST: redis
-      REDIS_URL: ${REDIS_URL}
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     networks:
-      - proxy-net
       - app-net
       - db-net
     secrets:
@@ -66,16 +79,27 @@ services:
     configs:
       - source: app_config
         target: /app/app.config.json
+    restart: unless-stopped
 
   worker:
     build:
       context: ./backend
       dockerfile: worker/Dockerfile
+    image: worker:${APP_VERSION:-latest}
+    pull_policy: build
+    env_file:
+      - path: .env.common
+        required: true
+      - path: .env.local
+        required: false
     environment:
       WORKER: "true"
       POSTGRES_HOST: postgres
       POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-app}
       REDIS_HOST: redis
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,11 +111,12 @@ services:
     secrets:
       - db_user
       - db_password
+    restart: unless-stopped
 
   postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER_FILE: /run/secrets/db_user
+      POSTGRES_USER: ${POSTGRES_USER:-app}
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
@@ -99,17 +124,15 @@ services:
     networks:
       - db-net
     secrets:
-      - db_user
       - db_password
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB}"]
       interval: 5s
-      retries: 5
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7
-    volumes:
-      - redis-data:/data
     networks:
       - app-net
     healthcheck:
@@ -119,29 +142,32 @@ services:
 
   adminer:
     image: adminer
-    ports:
-      - "8081:8080"
+    profiles: [debug]
     networks:
       - db-net
 
+  pgadmin:
+    image: dpage/pgadmin4
+    profiles: [debug]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    networks:
+      - db-net
+
+  db-migrator:
+    image: alpine
+    profiles: [migrate]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    command: ["sh", "-c", "echo Running migrations && sleep 5 && echo Done"]
+
 networks:
   proxy-net:
-    ipam:
-      config:
-        - subnet: 172.20.0.0/24
-          gateway: 172.20.0.1
-
   app-net:
-    ipam:
-      config:
-        - subnet: 172.21.0.0/24
-          gateway: 172.21.0.1
-
   db-net:
-    ipam:
-      config:
-        - subnet: 172.22.0.0/24
-          gateway: 172.22.0.1
 
 volumes:
   postgres-data:
@@ -154,7 +180,5 @@ secrets:
     file: ./secrets/db_password.txt
 
 configs:
-  nginx_config:
-    file: ./frontend/nginx/default.conf
   app_config:
     file: ./backend/app.config.json

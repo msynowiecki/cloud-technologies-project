@@ -1,0 +1,29 @@
+services:
+
+  nginx:
+    ports:
+      - "80:80"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  backend_1:
+    volumes:
+      - ./backend:/app
+
+  backend_2:
+    volumes:
+      - ./backend:/app
+
+  worker:
+    volumes:
+      - ./backend:/app
+
+  adminer:
+    ports:
+      - "8081:8080"
+
+  pgadmin:
+    ports:
+      - "5050:80"
